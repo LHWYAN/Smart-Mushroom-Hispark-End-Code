@@ -1,0 +1,5 @@
+config LDR_ADC_CHANNEL
+    int
+    prompt "set the ldr."
+    default 5
+    depends on ENABLE_HUAWEIIOT

@@ -1,0 +1,22 @@
+# 备份文件
+*.bak
+
+# 构建输出
+*.o
+*.elf
+*.bin
+*.lst
+*.nm
+*.asm
+*.map
+*.out
+*.hex
+
+# IDE 配置文件
+*.swp
+*.swo
+.idea/
+.vscode/
+*.suo
+*.user
+*.log
