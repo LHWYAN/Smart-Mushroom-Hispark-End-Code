@@ -70,3 +70,8 @@ HTTP_PORT = int(os.getenv("HTTP_PORT", "8080"))
 # ==================== 模拟数据配置 ====================
 # 模拟数据生成间隔（秒）
 SIMULATE_INTERVAL = int(os.getenv("SIMULATE_INTERVAL", "30"))
+# ==================== AI 助手配置 ====================
+# Dify API 地址（本地部署的 Dify，通过 nginx 反代）
+DIFY_API_URL = os.getenv("DIFY_API_URL", "http://localhost/v1/chat-messages")
+# Dify 应用 API Key（在 Dify 应用页面 -> 访问 API 中获取）
+DIFY_API_KEY = os.getenv("DIFY_API_KEY", "app-VO16MbqHBM4dW1lMn3kQ9Qk5")

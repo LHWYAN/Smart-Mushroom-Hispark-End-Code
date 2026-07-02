@@ -5,6 +5,9 @@
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 
+# --- AI 助手（Dify API 调用） ---
+requests>=2.31.0
+
 # --- 数据库 ---
 # SQLite (Python 内置，无需额外安装)
 

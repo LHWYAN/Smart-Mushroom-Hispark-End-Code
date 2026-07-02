@@ -16,6 +16,7 @@ FastAPI 后端服务，提供：
 """
 
 import json
+import requests
 import logging
 import os
 import sys
@@ -28,6 +29,7 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 # 将 backend 目录加入 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -380,6 +382,58 @@ async def websocket_realtime(websocket: WebSocket):
         websocket_clients.discard(websocket)
         logger.info(f"WebSocket 客户端已断开，当前连接数: {len(websocket_clients)}")
 
+
+
+# ===================================================================
+#  AI 助手接口（对接 Dify 大模型平台）
+# ===================================================================
+
+class AiChatRequest(BaseModel):
+    question: str
+
+
+@app.post("/api/v1/ai/chat")
+async def ai_chat(req: AiChatRequest):
+    """AI 助手：将用户问题转发给 Dify，返回 AI 回答"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {config.DIFY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "inputs": {},
+            "query": req.question,
+            "response_mode": "blocking",
+            "conversation_id": "",
+            "user": "smart-mushroom-web"
+        }
+
+        resp = requests.post(
+            config.DIFY_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        return {
+            "code": 0,
+            "message": "success",
+            "data": {
+                "answer": data.get("answer", ""),
+                "raw": data
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"AI 助手调用失败: {e}")
+        return {
+            "code": -1,
+            "message": str(e),
+            "data": None
+        }
 
 # ===================================================================
 #  程序入口
