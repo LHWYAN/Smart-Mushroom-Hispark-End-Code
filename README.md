@@ -12,6 +12,7 @@
 | 温湿度传感器 | DHT11 | 1 |
 | OLED 显示屏 | 0.96寸 SSD1306（128x64，I2C） | 1 |
 | 光敏电阻模块 | 模拟输出（接 ADC） | 1 |
+| 烟雾传感器 | MQ-2（模拟输出，接 ADC） | 1 |
 | LED | 5mm 发光二极管 | 2 |
 | 有源蜂鸣器 | 低电平触发 | 1 |
 | 超声波测距模块 | HC-SR04（预留，与蜂鸣器共用 GPIO_09） | 1（可选） |
@@ -26,6 +27,7 @@
 | DHT11 DATA | GPIO_04 | 双向 (PIN_MODE_2) | 单总线通讯 |
 | 光敏 ADC | ADC_CH5 (GPIO_05) | 模拟输入 | ADC 通道 5 |
 | HC-SR04 TRIG | GPIO_06 | 输出 (PIN_MODE_0) | 超声波触发 |
+| MQ-2 烟雾 | ADC_CH2 (GPIO_02) | 模拟输入 | ADC 通道 2 |
 | 蜂鸣器 | GPIO_09 | 输出 (PIN_MODE_0) | 低电平发声 |
 | HC-SR04 ECHO | GPIO_09 | 输入 (PIN_MODE_0) | **与蜂鸣器冲突** |
 | OLED SCL | GPIO_15 | I2C (PIN_MODE_2) | I2C 总线 1 |
@@ -100,6 +102,11 @@ python build.py ws63-liteos-app
 │   ├── bsp_oled.c/h        # OLED 底层 I2C 驱动
 │   ├── oled.c/h            # SSD1306 初始化与绘图
 │   ├── oled_fonts.c/h      # 字库（6x8 ~ 16x26）
+├── smoke_sensor/
+│   ├── mq2.c / mq2.h       # MQ-2 烟雾传感器驱动
+│   ├── mq2_demo.c          # 独立测试入口（未加入构建）
+│   ├── CMakeLists.txt      # 独立构建配置
+│   └── Kconfig             # ADC 通道配置项
 └── wifi/
     ├── wifi_connect.c/h    # WiFi STA 连接与 MQTT 启动
 ```
@@ -171,7 +178,8 @@ app_main()
 │   │   ├── oled_init()
 │   │   ├── adc_init()
 │   │   ├── led_init()
-│   │   └── Buzzer_Init()
+│   │   ├── Buzzer_Init()
+│   │   └── mq2_init()
 │   ├── 蜂鸣器短鸣 3 次提示
 │   └── wifi_connect()
 │       └── mqtt_app_start()   # WiFi 连接成功后启动
@@ -182,6 +190,7 @@ app_main()
 └── environment_task()          # 传感器任务 100ms
     ├── DHT11 温湿度 → OLED
     ├── ADC 光敏值 → 自动控灯 → OLED
+    ├── MQ-2 烟雾浓度 → OLED → SmokeSt 上报
     └── 更新设备状态标志
 ```
 
@@ -193,7 +202,7 @@ app_main()
 
 1. **`GPIO_09` 引脚冲突**：蜂鸣器与 HC-SR04 ECHO 共用 GPIO_09。如需同时使用超声波，将蜂鸣器改为其他空闲 GPIO。
 2. **WiFi 凭据硬编码**：SSID 和密码当前硬编码在 `app_main.h` 中，请根据实际环境修改。
-3. **ADC 通道**：光敏电阻默认使用 ADC 通道 5，可通过 `Kconfig` 中的 `LDR_ADC_CHANNEL` 调整。
+3. **ADC 通道**：光敏电阻默认使用 ADC 通道 5，可通过 `Kconfig` 中的 `LDR_ADC_CHANNEL` 调整。MQ-2 烟雾传感器使用 ADC 通道 2，两个模块共用 ADC 总线，可独立分时采集。
 4. **MQTT 长连接**：Keep Alive 设为 120 秒，设备需保持网络稳定；连接断开后不会自动重连（当前版本）。
 5. **非加密传输**：MQTT 使用 1883 端口（非 TLS），生产环境建议启用 8883 加密端口。
 

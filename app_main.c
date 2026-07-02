@@ -31,6 +31,7 @@
 #include "adc/ldr.h"
 #include "led/led.h"
 #include "buzzer/buzzer.h"
+#include "smoke_sensor/mq2.h"
 
 
 #define WIFI_TASK_STACK_SIZE 0x2000
@@ -116,6 +117,13 @@ static void *environment_task(const char *arg)
         }
         bsp_oled_DrawString(0, 50, lcd_buff, Font_7x10, White);
 
+        /* 读取MQ-2烟雾传感器 */
+        uint8_t smoke_val = mq2_get_percentage();
+        snprintf_s(SmokeSt, sizeof(SmokeSt), sizeof(SmokeSt) - 1, "%d", smoke_val);
+        memset(lcd_buff,0,100);
+        sprintf(lcd_buff, "Smoke:%d%%   ", smoke_val);
+        bsp_oled_DrawString(0, 60, lcd_buff, Font_7x10, White);
+
         if (lampState == 0) {
             snprintf_s(LampSt, sizeof(LampSt), sizeof(LampSt) - 1, "ON");
         } else {
@@ -156,6 +164,7 @@ static void environment_sensor_init(void)
     adc_init();
     led_init();
     Buzzer_Init();
+    mq2_init();
 
     strcpy(LampSt, "OFF");
     strcpy(CondiSt, "OFF");

@@ -1,0 +1,20 @@
+# ===== 智慧房间 - 本地后端服务 Python 依赖 =====
+# 安装方式: pip install -r requirements.txt
+
+# --- 核心框架 ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+
+# --- 数据库 ---
+# SQLite (Python 内置，无需额外安装)
+
+# KingbaseES (人大金仓) - 如需使用 KingbaseES，取消下面注释
+# psycopg2-binary>=2.9.9
+
+# --- AMQP 数据源（推荐方案：华为云 IoTDA AMQP 1.0） ---
+# 华为云 IoTDA 使用 AMQP 1.0 协议，需要 qpid-proton 库
+python-qpid-proton>=0.37.0
+
+# --- MQTT 数据源（不推荐：会与设备抢占连接） ---
+# 如果使用 MQTT 直连方式，取消下面注释
+# paho-mqtt>=1.6.1

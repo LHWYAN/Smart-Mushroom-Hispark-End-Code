@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智慧房间 - 物联网监控系统</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    background: #0f1923; color: #e0e0e0; min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg,#1a2a3a,#0d1b2a); padding: 16px 30px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 2px solid #1e90ff33;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(90deg,#1e90ff,#00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header .subtitle { font-size: 12px; color: #8899aa; }
+  .header .status-bar { display:flex; align-items:center; gap:16px; font-size:12px; }
+  .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; }
+  .status-dot.online { background:#00e676; box-shadow:0 0 6px #00e67688; }
+  .status-dot.offline { background:#ff5252; }
+
+  /* 导航标签 */
+  .tabs {
+    display:flex; gap:0; background:#0d1b2a; border-bottom:1px solid #1a2d42;
+    padding: 0 20px; overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 20px; cursor:pointer; font-size:13px; color:#8899aa;
+    border-bottom: 2px solid transparent; transition: all 0.2s; white-space:nowrap;
+  }
+  .tab:hover { color:#e0e0e0; background:#15243344; }
+  .tab.active { color:#00d4ff; border-color:#00d4ff; background:#15243366; }
+  .container { max-width:1400px; margin:0 auto; padding:16px; }
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* 传感器卡片 */
+  .sensor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+  .sensor-card {
+    background:linear-gradient(145deg,#1a2d42,#152433); border-radius:12px;
+    padding:16px; text-align:center; border:1px solid #2a4055;
+    position:relative; overflow:hidden;
+  }
+  .sensor-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,transparent,var(--accent,#1e90ff),transparent); }
+  .sensor-card .icon { font-size:24px; }
+  .sensor-card .label { font-size:11px; color:#8899aa; }
+  .sensor-card .value { font-size:24px; font-weight:700; margin:4px 0; color:var(--accent,#1e90ff); }
+  .card-temp { --accent:#ff6b6b; } .card-humi { --accent:#4ecdc4; }
+  .card-lumi { --accent:#ffd93d; } .card-smoke { --accent:#ff8a5c; } .card-co2 { --accent:#a29bfe; }
+
+  /* 设备状态 */
+  .device-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px; }
+  .device-card { background:#152433; border-radius:8px; padding:12px; text-align:center; border:1px solid #2a4055; }
+  .device-card .label { font-size:11px; color:#8899aa; }
+  .state { display:inline-block; padding:3px 12px; border-radius:16px; font-size:13px; font-weight:600; }
+  .state.on { background:#00e67622; color:#00e676; border:1px solid #00e67644; }
+  .state.off { background:#ff525222; color:#ff5252; border:1px solid #ff525244; }
+
+  /* 图表 */
+  .charts-section { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .chart-box { background:#152433; border-radius:10px; padding:14px; border:1px solid #2a4055; }
+  .chart-box h3 { font-size:13px; color:#8899aa; margin-bottom:8px; }
+  .chart-box canvas { width:100% !important; height:180px !important; }
+
+  /* 管理表格 */
+  .toolbar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  .toolbar button, .btn {
+    background:#1e90ff; color:#fff; border:none; padding:7px 16px; border-radius:6px;
+    cursor:pointer; font-size:12px; transition:all 0.2s;
+  }
+  .toolbar button:hover, .btn:hover { background:#1a7de6; }
+  .btn-danger { background:#e53935; }
+  .btn-danger:hover { background:#c62828; }
+  .btn-success { background:#43a047; }
+  .btn-success:hover { background:#2e7d32; }
+  .btn-sm { padding:4px 10px; font-size:11px; }
+  input, select { background:#1a2d42; border:1px solid #2a4055; color:#e0e0e0; padding:6px 10px; border-radius:4px; font-size:12px; }
+  input:focus, select:focus { outline:none; border-color:#1e90ff; }
+  .table-wrap { max-height:400px; overflow-y:auto; border:1px solid #1a2d42; border-radius:8px; }
+  .table-wrap::-webkit-scrollbar { width:5px; }
+  .table-wrap::-webkit-scrollbar-track { background:#0f1923; }
+  .table-wrap::-webkit-scrollbar-thumb { background:#2a4055; border-radius:3px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { background:#1a2d42; color:#8899aa; padding:8px 10px; text-align:left; font-weight:500; position:sticky; top:0; white-space:nowrap; }
+  td { padding:6px 10px; border-bottom:1px solid #1a2d42; white-space:nowrap; }
+  tr:hover td { background:#1a2d4288; }
+
+  /* 模态框 */
+  .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:#152433; border-radius:12px; padding:24px; min-width:400px; max-width:500px; border:1px solid #2a4055; }
+  .modal h3 { font-size:16px; margin-bottom:16px; color:#00d4ff; }
+  .modal .field { margin-bottom:10px; }
+  .modal .field label { display:block; font-size:12px; color:#8899aa; margin-bottom:4px; }
+  .modal .field input, .modal .field select { width:100%; }
+  .modal .actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+
+  /* 通知 */
+  .toast { position:fixed; top:20px; right:20px; background:#1e90ff; color:#fff; padding:10px 20px; border-radius:8px; font-size:13px; z-index:2000; opacity:0; transition:opacity 0.3s; }
+  .toast.success { background:#43a047; }
+  .toast.error { background:#e53935; }
+  .toast.show { opacity:1; }
+
+  @media (max-width:768px) {
+    .header { flex-direction:column; gap:6px; text-align:center; }
+    .charts-section { grid-template-columns:1fr; }
+    .modal { min-width:90%; margin:0 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <h1>智慧房间 · IoT 监控系统</h1>
+    <div class="subtitle">WS63 传感器数据采集 · 3表架构 · 完整CRUD</div>
+  </div>
+  <div class="status-bar">
+    <span><span class="status-dot online" id="statusDot"></span><span id="statusText">运行中</span></span>
+    <span>数据 <span id="totalCount" style="color:#00d4ff;">0</span> 条</span>
+    <span>设备 <span id="deviceCount" style="color:#00d4ff;">0</span> 台</span>
+    <span style="color:#556677;" id="updateTime"></span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">📊 仪表盘</div>
+  <div class="tab" onclick="switchTab('devices')">📱 设备管理</div>
+  <div class="tab" onclick="switchTab('sensor-data')">🌡️ 数据管理</div>
+  <div class="tab" onclick="switchTab('commands')">📋 命令管理</div>
+</div>
+
+<div class="container">
+
+<!-- =============== 页面1: 仪表盘 =============== -->
+<div class="page active" id="page-dashboard">
+  <div class="sensor-grid">
+    <div class="sensor-card card-temp"><div class="icon">🌡️</div><div class="label">温度</div><div class="value" id="tempValue">--.-</div><div class="unit">°C</div></div>
+    <div class="sensor-card card-humi"><div class="icon">💧</div><div class="label">湿度</div><div class="value" id="humiValue">--.-</div><div class="unit">%RH</div></div>
+    <div class="sensor-card card-lumi"><div class="icon">☀️</div><div class="label">光照</div><div class="value" id="lumiValue">---</div><div class="unit">Lux</div></div>
+    <div class="sensor-card card-smoke"><div class="icon">💨</div><div class="label">烟雾</div><div class="value" id="smokeValue">--</div><div class="unit">%</div></div>
+    <div class="sensor-card card-co2"><div class="icon">🫁</div><div class="label">CO₂</div><div class="value" id="co2Value">---</div><div class="unit">ppm</div></div>
+  </div>
+  <div class="charts-section">
+    <div class="chart-box"><h3>🌡️ 温度趋势</h3><canvas id="tempChart"></canvas></div>
+    <div class="chart-box"><h3>💧 湿度趋势</h3><canvas id="humiChart"></canvas></div>
+  </div>
+  <div class="table-section" style="background:#152433;border-radius:10px;padding:14px;border:1px solid #2a4055;">
+    <h3 style="font-size:13px;color:#8899aa;margin-bottom:8px;">📋 最新数据</h3>
+    <div class="table-wrap" style="max-height:250px;">
+      <table>
+        <thead><tr><th>时间</th><th>温度</th><th>湿度</th><th>光照</th><th>烟雾</th><th>CO₂</th></tr></thead>
+        <tbody id="dataTableBody"><tr><td colspan="6" style="text-align:center;color:#556677;">等待数据...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- =============== 页面2: 设备管理 =============== -->
+<div class="page" id="page-devices">
+  <div class="toolbar">
+    <button onclick="showDeviceModal()">➕ 注册设备</button>
+    <input type="text" id="deviceSearch" placeholder="搜索设备ID..." style="width:200px;" oninput="loadDevices()">
+    <span style="color:#556677;font-size:12px;" id="deviceCountLabel">共 0 台设备</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>设备ID</th><th>名称</th><th>类型</th><th>位置</th><th>状态</th><th>备注</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="deviceTableBody"><tr><td colspan="9" style="text-align:center;color:#556677;">加载中...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- =============== 页面3: 数据管理 =============== -->
+<div class="page" id="page-sensor-data">
+  <div class="toolbar">
+    <button onclick="showSensorDataModal()">➕ 手动插入</button>
+    <button class="btn-danger" onclick="batchDeleteSensor()">🗑️ 批量删除</button>
+    <input type="text" id="sensorSearchDevice" placeholder="按设备ID过滤..." style="width:160px;" oninput="loadSensorData()">
+    <span style="color:#556677;font-size:12px;" id="sensorCountLabel">共 0 条</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>设备</th><th>温度</th><th>湿度</th><th>光照</th><th>烟雾</th><th>CO₂</th><th>照明</th><th>空调</th><th>风扇</th><th>时间</th><th>操作</th></tr></thead>
+      <tbody id="sensorTableBody"><tr><td colspan="12" style="text-align:center;color:#556677;">加载中...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- =============== 页面4: 命令管理 =============== -->
+<div class="page" id="page-commands">
+  <div class="toolbar">
+    <button onclick="showCommandModal()">➕ 插入命令</button>
+    <input type="text" id="cmdSearchDevice" placeholder="按设备ID过滤..." style="width:160px;" oninput="loadCommands()">
+    <span style="color:#556677;font-size:12px;" id="cmdCountLabel">共 0 条</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>设备</th><th>命令</th><th>参数键</th><th>参数值</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+      <tbody id="cmdTableBody"><tr><td colspan="8" style="text-align:center;color:#556677;">加载中...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<!-- ===== 模态框：设备编辑 ===== -->
+<div class="modal-overlay" id="deviceModal">
+  <div class="modal">
+    <h3 id="deviceModalTitle">📱 注册设备</h3>
+    <div class="field"><label>设备ID *</label><input id="f-device-id" placeholder="如 roomone"></div>
+    <div class="field"><label>设备名称</label><input id="f-device-name" placeholder="如 一号房间"></div>
+    <div class="field"><label>设备类型</label><select id="f-device-type"><option value="sensor">传感器</option><option value="actuator">执行器</option><option value="gateway">网关</option></select></div>
+    <div class="field"><label>安装位置</label><input id="f-device-location" placeholder="如 沈阳网联实验室"></div>
+    <div class="field"><label>备注</label><input id="f-device-remarks"></div>
+    <div class="actions">
+      <button class="btn btn-danger" onclick="closeModal('deviceModal')">取消</button>
+      <button class="btn btn-success" id="deviceSaveBtn" onclick="saveDevice()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 模态框：传感器数据编辑 ===== -->
+<div class="modal-overlay" id="sensorModal">
+  <div class="modal">
+    <h3 id="sensorModalTitle">🌡️ 手动插入数据</h3>
+    <div class="field"><label>设备ID</label><input id="f-s-device" value="roomone"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label>温度</label><input id="f-s-temp" placeholder="如 26.5"></div>
+      <div class="field"><label>湿度</label><input id="f-s-humi" placeholder="如 60.2"></div>
+      <div class="field"><label>光照</label><input id="f-s-lumi" placeholder="如 300"></div>
+      <div class="field"><label>烟雾</label><input id="f-s-smoke" value="0"></div>
+      <div class="field"><label>CO₂</label><input id="f-s-co2" value="400"></div>
+      <div class="field"><label>照明</label><select id="f-s-lamp"><option>OFF</option><option>ON</option></select></div>
+      <div class="field"><label>空调</label><select id="f-s-cond"><option>OFF</option><option>ON</option></select></div>
+      <div class="field"><label>风扇</label><select id="f-s-vent"><option>OFF</option><option>ON</option></select></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-danger" onclick="closeModal('sensorModal')">取消</button>
+      <button class="btn btn-success" onclick="saveSensorData()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 模态框：命令编辑 ===== -->
+<div class="modal-overlay" id="cmdModal">
+  <div class="modal">
+    <h3 id="cmdModalTitle">📋 插入命令</h3>
+    <div class="field"><label>设备ID</label><input id="f-c-device" value="roomone"></div>
+    <div class="field"><label>命令名称 *</label>
+      <select id="f-c-command"><option value="SetLamp">SetLamp</option><option value="SetCond">SetCond</option><option value="SetVent">SetVent</option><option value="SetBuzzer">SetBuzzer</option></select>
+    </div>
+    <div class="field"><label>参数键</label><input id="f-c-key" placeholder="如 LampStatus"></div>
+    <div class="field"><label>参数值</label><select id="f-c-value"><option>ON</option><option>OFF</option></select></div>
+    <div class="actions">
+      <button class="btn btn-danger" onclick="closeModal('cmdModal')">取消</button>
+      <button class="btn btn-success" onclick="saveCommand()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================================================================
+//  智慧房间 - Web 前端 (含3表CRUD)
+// ===================================================================
+
+let tempChartInstance = null, humiChartInstance = null;
+const API = window.location.origin;
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboard(); loadDevices(); loadSensorData(); loadCommands();
+  setInterval(() => { loadLatest(); loadStats(); }, 5000);
+});
+
+// ===== 标签切换 =====
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${name}"]`).classList.add('active');
+  document.getElementById(`page-${name}`).classList.add('active');
+  if (name === 'devices') loadDevices();
+  if (name === 'sensor-data') loadSensorData();
+  if (name === 'commands') loadCommands();
+  if (name === 'dashboard') loadDashboard();
+}
+
+// ===== Toast =====
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== 模态框 =====
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// =============== 仪表盘 ===============
+async function loadDashboard() {
+  loadLatest(); loadHistory(); loadStats();
+}
+async function loadLatest() {
+  try {
+    const r = await (await fetch(`${API}/api/v1/latest`)).json();
+    if (r.code !== 0 || !r.data) return;
+    const d = r.data;
+    document.getElementById('tempValue').textContent = d.Temp || '--';
+    document.getElementById('humiValue').textContent = d.Humi || '--';
+    document.getElementById('lumiValue').textContent = d.Lumi || '--';
+    document.getElementById('smokeValue').textContent = d.Smoke || '0';
+    document.getElementById('co2Value').textContent = d.CO2 || '--';
+    document.getElementById('updateTime').textContent = d.create_time ? '更新: ' + d.create_time : '';
+  } catch(e) {}
+}
+async function loadStats() {
+  try {
+    const r = await (await fetch(`${API}/api/v1/statistics`)).json();
+    if (r.code === 0 && r.data) {
+      document.getElementById('totalCount').textContent = r.data.total_records || 0;
+      document.getElementById('deviceCount').textContent = r.data.total_devices || 0;
+    }
+  } catch(e) {}
+}
+async function loadHistory() {
+  try {
+    const r = await (await fetch(`${API}/api/v1/history?limit=50`)).json();
+    if (r.code !== 0) return;
+    const rows = r.data || [];
+    const tbody = document.getElementById('dataTableBody');
+    if (rows.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#556677;">暂无数据</td></tr>'; return; }
+    tbody.innerHTML = rows.slice(0,20).map(d => `<tr><td>${d.create_time||''}</td><td>${d.Temp||'--'}</td><td>${d.Humi||'--'}</td><td>${d.Lumi||'--'}</td><td>${d.Smoke||'0'}</td><td>${d.CO2||'--'}</td></tr>`).join('');
+    renderCharts(rows.reverse());
+  } catch(e) {}
+}
+function renderCharts(rows) {
+  if (rows.length === 0) return;
+  function pn(v) { const n=parseFloat(v); return isNaN(n)?0:n; }
+  const labels = rows.map(r => r.create_time ? (r.create_time.split(' ')[1]||'') : '');
+  const tempData = rows.map(r => pn(r.Temp));
+  const humiData = rows.map(r => pn(r.Humi));
+  const tempCtx = document.getElementById('tempChart').getContext('2d');
+  if (tempChartInstance) tempChartInstance.destroy();
+  tempChartInstance = new Chart(tempCtx, {
+    type:'line', data:{ labels, datasets:[{ label:'温度', data:tempData, borderColor:'#ff6b6b', backgroundColor:'rgba(255,107,107,0.1)', fill:true, tension:0.3, pointRadius:2, borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#556677',maxTicksLimit:8,font:{size:10}},grid:{color:'#1a2d42'}},y:{ticks:{color:'#556677',font:{size:10}},grid:{color:'#1a2d42'}} }, interaction:{intersect:false,mode:'index'} }
+  });
+  const humiCtx = document.getElementById('humiChart').getContext('2d');
+  if (humiChartInstance) humiChartInstance.destroy();
+  humiChartInstance = new Chart(humiCtx, {
+    type:'line', data:{ labels, datasets:[{ label:'湿度', data:humiData, borderColor:'#4ecdc4', backgroundColor:'rgba(78,205,196,0.1)', fill:true, tension:0.3, pointRadius:2, borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#556677',maxTicksLimit:8,font:{size:10}},grid:{color:'#1a2d42'}},y:{ticks:{color:'#556677',font:{size:10}},grid:{color:'#1a2d42'}} }, interaction:{intersect:false,mode:'index'} }
+  });
+}
+
+// =============== 设备管理 CRUD ===============
+async function loadDevices() {
+  try {
+    const r = await (await fetch(`${API}/api/v1/devices`)).json();
+    if (r.code !== 0) return;
+    const rows = r.data || [];
+    document.getElementById('deviceCountLabel').textContent = `共 ${rows.length} 台设备`;
+    const search = (document.getElementById('deviceSearch').value||'').toLowerCase();
+    const filtered = search ? rows.filter(d => d.device_id.toLowerCase().includes(search)) : rows;
+    const tbody = document.getElementById('deviceTableBody');
+    tbody.innerHTML = filtered.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td><strong>${d.device_id}</strong></td>
+        <td>${d.device_name||'-'}</td>
+        <td>${d.device_type}</td>
+        <td>${d.location||'-'}</td>
+        <td><span class="state ${d.status==='online'?'on':'off'}">${d.status}</span></td>
+        <td>${d.remarks||'-'}</td>
+        <td>${d.create_time||''}</td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick='editDevice(${JSON.stringify(d).replace(/'/g,"\\'")})'>修改</button>
+          <button class="btn btn-sm btn-danger" onclick='deleteDevice("${d.device_id}")'>删除</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('加载设备失败','error'); }
+}
+
+function showDeviceModal(data) {
+  document.getElementById('deviceModalTitle').textContent = data ? '✏️ 修改设备' : '📱 注册设备';
+  document.getElementById('f-device-id').value = data ? data.device_id : '';
+  document.getElementById('f-device-id').readOnly = !!data;
+  document.getElementById('f-device-name').value = data ? (data.device_name||'') : '';
+  document.getElementById('f-device-type').value = data ? (data.device_type||'sensor') : 'sensor';
+  document.getElementById('f-device-location').value = data ? (data.location||'') : '';
+  document.getElementById('f-device-remarks').value = data ? (data.remarks||'') : '';
+  document.getElementById('deviceSaveBtn').dataset.mode = data ? 'update' : 'create';
+  document.getElementById('deviceSaveBtn').dataset.id = data ? data.device_id : '';
+  document.getElementById('deviceModal').classList.add('show');
+}
+
+function editDevice(data) { showDeviceModal(data); }
+
+async function saveDevice() {
+  const mode = document.getElementById('deviceSaveBtn').dataset.mode;
+  const did = document.getElementById('f-device-id').value;
+  const name = document.getElementById('f-device-name').value;
+  const type = document.getElementById('f-device-type').value;
+  const loc = document.getElementById('f-device-location').value;
+  const remarks = document.getElementById('f-device-remarks').value;
+  if (!did) { showToast('请输入设备ID','error'); return; }
+  try {
+    if (mode === 'create') {
+      const r = await (await fetch(`${API}/api/v1/devices?device_id=${did}&device_name=${name}&device_type=${type}&location=${loc}&remarks=${remarks}`, {method:'POST'})).json();
+      if (r.code === 0) showToast('✅ 设备注册成功'); else { showToast(r.message,'error'); return; }
+    } else {
+      const r = await (await fetch(`${API}/api/v1/devices/${did}?device_name=${name}&device_type=${type}&location=${loc}&remarks=${remarks}`, {method:'PUT'})).json();
+      if (r.code === 0) showToast('✅ 设备更新成功'); else { showToast(r.message,'error'); return; }
+    }
+    closeModal('deviceModal'); loadDevices(); loadStats();
+  } catch(e) { showToast('操作失败','error'); }
+}
+
+async function deleteDevice(did) {
+  if (!confirm(`确定删除设备 ${did} 吗？关联的传感器数据也将被删除。`)) return;
+  try {
+    const r = await (await fetch(`${API}/api/v1/devices/${did}`, {method:'DELETE'})).json();
+    if (r.code === 0) showToast(`✅ 设备 ${did} 已删除`); else showToast(r.message,'error');
+    loadDevices(); loadStats();
+  } catch(e) { showToast('删除失败','error'); }
+}
+
+// =============== 传感器数据管理 CRUD ===============
+async function loadSensorData() {
+  try {
+    const devFilter = document.getElementById('sensorSearchDevice').value;
+    let url = `${API}/api/v1/history?limit=100`;
+    if (devFilter) url += `&device_id=${devFilter}`;
+    const r = await (await fetch(url)).json();
+    if (r.code !== 0) return;
+    const rows = r.data || [];
+    document.getElementById('sensorCountLabel').textContent = `共 ${rows.length} 条`;
+    const tbody = document.getElementById('sensorTableBody');
+    tbody.innerHTML = rows.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.device_id||'roomone'}</td>
+        <td>${d.Temp||'--'}</td>
+        <td>${d.Humi||'--'}</td>
+        <td>${d.Lumi||'--'}</td>
+        <td>${d.Smoke||'0'}</td>
+        <td>${d.CO2||'--'}</td>
+        <td>${d.LampST||'OFF'}</td>
+        <td>${d.CondST||'OFF'}</td>
+        <td>${d.VentST||'OFF'}</td>
+        <td>${d.create_time||''}</td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick='deleteSensorData(${d.id})'>删除</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('加载数据失败','error'); }
+}
+
+function showSensorDataModal() {
+  document.getElementById('sensorModalTitle').textContent = '🌡️ 手动插入数据';
+  document.getElementById('f-s-device').value = 'roomone';
+  document.getElementById('f-s-temp').value = ''; document.getElementById('f-s-humi').value = '';
+  document.getElementById('f-s-lumi').value = ''; document.getElementById('f-s-smoke').value = '0';
+  document.getElementById('f-s-co2').value = '400';
+  document.getElementById('f-s-lamp').value = 'OFF'; document.getElementById('f-s-cond').value = 'OFF'; document.getElementById('f-s-vent').value = 'OFF';
+  document.getElementById('sensorModal').classList.add('show');
+}
+
+async function saveSensorData() {
+  const params = new URLSearchParams({
+    device_id: document.getElementById('f-s-device').value,
+    Temp: document.getElementById('f-s-temp').value,
+    Humi: document.getElementById('f-s-humi').value,
+    Lumi: document.getElementById('f-s-lumi').value,
+    Smoke: document.getElementById('f-s-smoke').value,
+    CO2: document.getElementById('f-s-co2').value,
+    LampST: document.getElementById('f-s-lamp').value,
+    CondST: document.getElementById('f-s-cond').value,
+    VentST: document.getElementById('f-s-vent').value,
+  });
+  try {
+    const r = await (await fetch(`${API}/api/v1/sensor-data?${params}`, {method:'POST'})).json();
+    if (r.code === 0) showToast('✅ 数据已插入'); else { showToast(r.message,'error'); return; }
+    closeModal('sensorModal'); loadSensorData(); loadDashboard();
+  } catch(e) { showToast('插入失败','error'); }
+}
+
+async function deleteSensorData(id) {
+  if (!confirm(`确定删除第 ${id} 条数据吗？`)) return;
+  try {
+    const r = await (await fetch(`${API}/api/v1/sensor-data/${id}`, {method:'DELETE'})).json();
+    if (r.code === 0) showToast('✅ 数据已删除'); else showToast(r.message,'error');
+    loadSensorData(); loadDashboard();
+  } catch(e) { showToast('删除失败','error'); }
+}
+
+async function batchDeleteSensor() {
+  const device_id = prompt('按设备ID批量删除（留空则删除全部，输入设备ID则删除该设备所有数据，输入"roomone"则删除一号房间数据）');
+  const before = prompt('按时间批量删除（格式: 2026-07-01 12:00:00，留空则不限时间）');
+  if (device_id === null && before === null) return;
+  let url = `${API}/api/v1/sensor-data?`;
+  if (device_id) url += `&device_id=${device_id}`;
+  if (before) url += `&before_time=${encodeURIComponent(before)}`;
+  try {
+    const r = await (await fetch(url, {method:'DELETE'})).json();
+    if (r.code === 0) showToast(`✅ 已删除 ${r.data.deleted} 条记录`); else showToast(r.message,'error');
+    loadSensorData(); loadDashboard();
+  } catch(e) { showToast('批量删除失败','error'); }
+}
+
+// =============== 命令管理 CRUD ===============
+async function loadCommands() {
+  try {
+    const devFilter = document.getElementById('cmdSearchDevice').value;
+    let url = `${API}/api/v1/commands?limit=100`;
+    if (devFilter) url += `&device_id=${devFilter}`;
+    const r = await (await fetch(url)).json();
+    if (r.code !== 0) return;
+    const rows = r.data || [];
+    document.getElementById('cmdCountLabel').textContent = `共 ${rows.length} 条`;
+    const tbody = document.getElementById('cmdTableBody');
+    tbody.innerHTML = rows.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.device_id}</td>
+        <td><code>${d.command}</code></td>
+        <td>${d.param_key||'-'}</td>
+        <td>${d.param_value||'-'}</td>
+        <td><span class="state ${d.status==='success'?'on':d.status==='fail'?'off':''}">${d.status}</span></td>
+        <td>${d.create_time||''}</td>
+        <td>
+          ${d.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick='updateCmdStatus(${d.id},"success")'>成功</button><button class="btn btn-sm btn-danger" onclick='updateCmdStatus(${d.id},"fail")'>失败</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick='deleteCommand(${d.id})'>删除</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { showToast('加载命令失败','error'); }
+}
+
+function showCommandModal() {
+  document.getElementById('cmdModalTitle').textContent = '📋 插入命令';
+  document.getElementById('f-c-device').value = 'roomone';
+  document.getElementById('f-c-command').value = 'SetLamp';
+  document.getElementById('f-c-key').value = 'LampStatus';
+  document.getElementById('f-c-value').value = 'ON';
+  document.getElementById('cmdModal').classList.add('show');
+}
+
+async function saveCommand() {
+  const params = new URLSearchParams({
+    device_id: document.getElementById('f-c-device').value,
+    command: document.getElementById('f-c-command').value,
+    param_key: document.getElementById('f-c-key').value,
+    param_value: document.getElementById('f-c-value').value,
+  });
+  try {
+    const r = await (await fetch(`${API}/api/v1/commands?${params}`, {method:'POST'})).json();
+    if (r.code === 0) showToast('✅ 命令记录已创建'); else { showToast(r.message,'error'); return; }
+    closeModal('cmdModal'); loadCommands();
+  } catch(e) { showToast('创建失败','error'); }
+}
+
+async function updateCmdStatus(id, status) {
+  try {
+    const r = await (await fetch(`${API}/api/v1/commands/${id}?status=${status}`, {method:'PUT'})).json();
+    if (r.code === 0) showToast(`✅ 状态已更新为 ${status}`); else showToast(r.message,'error');
+    loadCommands();
+  } catch(e) { showToast('更新失败','error'); }
+}
+
+async function deleteCommand(id) {
+  if (!confirm(`确定删除第 ${id} 条命令记录吗？`)) return;
+  try {
+    const r = await (await fetch(`${API}/api/v1/commands/${id}`, {method:'DELETE'})).json();
+    if (r.code === 0) showToast('✅ 命令已删除'); else showToast(r.message,'error');
+    loadCommands();
+  } catch(e) { showToast('删除失败','error'); }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</body>
+</html>

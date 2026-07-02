@@ -9,6 +9,7 @@ set(SOURCES_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/mqtt/mqtt.c
     ${CMAKE_CURRENT_SOURCE_DIR}/led/led.c
     ${CMAKE_CURRENT_SOURCE_DIR}/buzzer/buzzer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/smoke_sensor/mq2.c
     ${CMAKE_CURRENT_SOURCE_DIR}/app_main.c
 )
 set(HEADER_LIST 
@@ -20,6 +21,7 @@ set(HEADER_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/adc
     ${CMAKE_CURRENT_SOURCE_DIR}/hcsr04
     ${CMAKE_CURRENT_SOURCE_DIR}/buzzer
+    ${CMAKE_CURRENT_SOURCE_DIR}/smoke_sensor
 )
 
 set(SOURCES "${SOURCES}" ${SOURCES_LIST} PARENT_SCOPE)

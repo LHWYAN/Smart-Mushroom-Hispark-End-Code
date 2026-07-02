@@ -1,0 +1,12 @@
+config ENABLE_SMOKE_MQ2
+    bool
+    prompt "Enable the Smoke Sensor (MQ-2) Demo."
+    default n
+    help
+        This option enables the MQ-2 Smoke Sensor test application.
+
+config MQ2_ADC_CHANNEL
+    int
+    prompt "Set the MQ-2 Sensor ADC Channel."
+    default 2
+    depends on ENABLE_SMOKE_MQ2
