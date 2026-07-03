@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include "pinctrl.h"
 
-/* 可根据实际硬件连接修改MQ-2传感器的ADC引脚号，此处默认使用ADC通道 2 */
+/* 可根据实际硬件连接修改MQ-2传感器的ADC引脚号，此处默认使用ADC通道 7 */
 #ifndef MQ2_ADC_CHANNEL
-#define MQ2_ADC_CHANNEL 2
+#define MQ2_ADC_CHANNEL 7
 #endif
 
 /* 烟雾传感器初始化 */

@@ -20,6 +20,9 @@ int mq2_init(void)
         return -1;
     }
     
+    // 给ADC上电（GADC常规精度模式）
+    uapi_adc_power_en(AFE_GADC_MODE, true);
+    
     printf("MQ-2 sensor init success, using ADC Channel: %d\n", MQ2_ADC_CHANNEL);
     return 0;
 }
@@ -58,16 +61,22 @@ uint8_t mq2_get_percentage(void)
     uint32_t percentage = 0;
     
     if (raw < 0) {
+        printf("[MQ-2] ADC sample error: %d\r\n", raw);
         return 0; // 出错时返回 0
     }
     
-    // 根据原始 STM32 代码逻辑，转换为百分比
-    // (raw * 100) / 4000 / 10 => raw / 400
-    percentage = raw / 40;
+    // WS63 ADC 为 12 位，范围 0~4095
+    // MQ-2 AO 输出随烟雾浓度升高而增大
+    // 将 ADC 原始值直接映射到 0~100%
+    // 一般 MQ-2 在干净空气中 ADC 值 < 500，严重烟雾时可达 3000+
+    // 计算公式: percentage = raw * 100 / 4095
+    // 但为了传感器预热期间不误报，取 raw * 100 / 4000 并限制上限
+    percentage = (uint32_t)raw * 100 / 4000;
     
     if (percentage > 100) {
         percentage = 100;
     }
     
+    printf("[MQ-2] raw=%d, percentage=%u%%\r\n", raw, percentage);
     return (uint8_t)percentage;
 }
